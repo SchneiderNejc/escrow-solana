@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{ self, Token, TokenAccount, Transfer };
+use anchor_spl::token::{ self, Token, Transfer, TokenAccount, Mint };
 
 declare_id!("9svm47FMtLRAy4TZsAj4fRwhSedKXdHtAMqGQeFUREVr");
 
@@ -8,17 +8,17 @@ pub mod simple_escrow {
     use super::*;
 
     /// Create a new escrow
-    pub fn create_escrow(
-        ctx: Context<CreateEscrow>,
-        amount: u64,
-        expiry: i64 // Hardcoded for simplicity in client-side
-    ) -> Result<()> {
+    pub fn create_escrow(ctx: Context<CreateEscrow>, amount: u64, expiry: i64) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
         escrow.depositor = ctx.accounts.depositor.key();
-        escrow.recipient = ctx.accounts.recipient.key();
         escrow.amount = amount;
-        escrow.expiry = Clock::get()?.unix_timestamp + expiry; // Set expiry time
-        escrow.status = EscrowStatus::Pending;
+        escrow.expiry = Clock::get()?.unix_timestamp + expiry;
+
+        // Convert status to u8
+        escrow.status = EscrowStatus::Pending as u8;
+
+        // Assign recipient
+        escrow.recipient = ctx.accounts.recipient.key();
 
         Ok(())
     }
@@ -97,10 +97,30 @@ pub struct Escrow {
 
 /// Escrow status enum
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq)]
+#[repr(u8)]
 pub enum EscrowStatus {
-    Pending,
-    Completed,
-    Cancelled,
+    Pending = 0,
+    Completed = 1,
+    Cancelled = 2,
+}
+
+impl EscrowStatus {
+    pub fn as_u8(self) -> u8 {
+        self as u8
+    }
+}
+
+impl TryFrom<u8> for EscrowStatus {
+    type Error = ProgramError;
+
+    fn try_from(value: u8) -> core::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(EscrowStatus::Pending),
+            1 => Ok(EscrowStatus::Completed),
+            2 => Ok(EscrowStatus::Cancelled),
+            _ => Err(ProgramError::InvalidAccountData),
+        }
+    }
 }
 
 /// Accounts for creating escrow
@@ -133,12 +153,16 @@ pub struct CreateEscrow<'info> {
         token::mint = mint,
         token::authority = escrow
     )]
-    pub escrow_token_account: Account<'info, anchor_spl::token::TokenAccount>,
+    pub escrow_token_account: Account<'info, TokenAccount>,
 
-    pub mint: Account<'info, anchor_spl::token::Mint>,
+    pub mint: Account<'info, Mint>,
 
-    #[account(address = anchor_spl::token::ID)]
-    pub token_program: Program<'info, anchor_spl::token::Token>,
+    #[account(address = token::ID)] // Correct token program address
+    pub token_program: Program<'info, Token>,
+
+    // Other accounts
+    #[account(mut)]
+    pub recipient: Signer<'info>,
 
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
