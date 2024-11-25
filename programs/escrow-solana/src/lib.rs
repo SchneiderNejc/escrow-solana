@@ -45,24 +45,28 @@ pub mod simple_escrow {
 
     /// Withdraw funds (called by recipient)
     pub fn withdraw_escrow(ctx: Context<WithdrawEscrow>) -> Result<()> {
+        // Clone escrow account info first to avoid overlapping mutable borrow
+        let escrow_account_info = ctx.accounts.escrow.to_account_info().clone();
+
+        // Borrow `escrow` mutably after cloning its account info
         let escrow = &mut ctx.accounts.escrow;
 
-        // Ensure escrow is expired
-        require!(Clock::get()?.unix_timestamp < escrow.expiry, EscrowError::EscrowExpired);
+        // Ensure escrow is NOT expired
+        require!(Clock::get()?.unix_timestamp >= escrow.expiry, EscrowError::EscrowExpired);
 
         // Ensure caller is the recipient
         require!(ctx.accounts.recipient.key() == escrow.recipient, EscrowError::Unauthorized);
 
-        // Transfer tokens to recipient
-        let escrow_key = escrow.key(); // Store in a variable to extend its lifetime
+        // Store escrow key in a variable to extend its lifetime
+        let escrow_key = escrow.key();
         let escrow_seeds = &[b"escrow", escrow_key.as_ref()];
         let signer_seeds = &[&escrow_seeds[..]];
 
-        let escrow_account_info = ctx.accounts.escrow.to_account_info().clone(); // Clone here
+        // Prepare CPI context for token transfer
         let cpi_accounts = Transfer {
             from: ctx.accounts.escrow_token_account.to_account_info(),
             to: ctx.accounts.recipient_token_account.to_account_info(),
-            authority: escrow_account_info,
+            authority: escrow_account_info, // Use cloned account info
         };
 
         let cpi_ctx = CpiContext::new_with_signer(
@@ -71,6 +75,7 @@ pub mod simple_escrow {
             signer_seeds
         );
 
+        // Perform the token transfer
         token::transfer(cpi_ctx, escrow.amount)?;
 
         // Mark escrow as completed
