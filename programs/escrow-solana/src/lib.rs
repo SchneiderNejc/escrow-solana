@@ -139,7 +139,7 @@ pub struct CreateEscrow<'info> {
         payer = depositor,
         seeds = [b"escrow", depositor.key().as_ref()],
         bump,
-        space = 8 + Escrow::LEN
+        space = 8 + Escrow::LEN // Adjust this space according to the size of your escrow struct
     )]
     pub escrow: Account<'info, Escrow>,
 
