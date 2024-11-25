@@ -106,27 +106,61 @@ pub enum EscrowStatus {
 /// Accounts for creating escrow
 #[derive(Accounts)]
 pub struct CreateEscrow<'info> {
-    #[account(init, payer = depositor, space = 8 + std::mem::size_of::<Escrow>())]
+    #[account(
+        init,
+        payer = depositor,
+        seeds = [b"escrow", depositor.key().as_ref()],
+        bump,
+        space = 8 + Escrow::LEN
+    )]
     pub escrow: Account<'info, Escrow>,
+
     #[account(mut)]
     pub depositor: Signer<'info>,
-    /// CHECK: Recipient does not need to be initialized
-    pub recipient: AccountInfo<'info>,
+
+    #[account(
+        mut,
+        constraint = depositor_token_account.owner == depositor.key(),
+        constraint = depositor_token_account.mint == mint.key()
+    )]
+    pub depositor_token_account: Account<'info, anchor_spl::token::TokenAccount>,
+
+    #[account(
+        init,
+        payer = depositor,
+        seeds = [b"escrow-token", escrow.key().as_ref()],
+        bump,
+        token::mint = mint,
+        token::authority = escrow
+    )]
+    pub escrow_token_account: Account<'info, anchor_spl::token::TokenAccount>,
+
+    pub mint: Account<'info, anchor_spl::token::Mint>,
+
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, anchor_spl::token::Token>,
+
     pub system_program: Program<'info, System>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 /// Accounts for funding escrow
 #[derive(Accounts)]
 pub struct FundEscrow<'info> {
-    #[account(mut)]
+    #[account(mut, has_one = depositor)]
     pub escrow: Account<'info, Escrow>,
+
     #[account(mut)]
     pub depositor: Signer<'info>,
+
     #[account(mut)]
-    pub depositor_token_account: Account<'info, TokenAccount>,
+    pub depositor_token_account: Account<'info, anchor_spl::token::TokenAccount>,
+
     #[account(mut)]
-    pub escrow_token_account: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
+    pub escrow_token_account: Account<'info, anchor_spl::token::TokenAccount>,
+
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, anchor_spl::token::Token>,
 }
 
 /// Accounts for withdrawing escrow
@@ -134,13 +168,18 @@ pub struct FundEscrow<'info> {
 pub struct WithdrawEscrow<'info> {
     #[account(mut)]
     pub escrow: Account<'info, Escrow>,
+
     #[account(mut)]
     pub recipient: Signer<'info>,
+
     #[account(mut)]
-    pub recipient_token_account: Account<'info, TokenAccount>,
+    pub recipient_token_account: Account<'info, anchor_spl::token::TokenAccount>,
+
     #[account(mut)]
-    pub escrow_token_account: Account<'info, TokenAccount>,
-    pub token_program: Program<'info, Token>,
+    pub escrow_token_account: Account<'info, anchor_spl::token::TokenAccount>,
+
+    #[account(address = anchor_spl::token::ID)]
+    pub token_program: Program<'info, anchor_spl::token::Token>,
 }
 
 /// Error codes
