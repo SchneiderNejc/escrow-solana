@@ -28,7 +28,10 @@ pub mod simple_escrow {
         let escrow = &mut ctx.accounts.escrow;
 
         // Ensure escrow is in pending state
-        require!(escrow.status == EscrowStatus::Pending, EscrowError::InvalidStatus);
+        require!(
+            EscrowStatus::try_from(escrow.status)? == EscrowStatus::Pending,
+            EscrowError::InvalidStatus
+        );
 
         // Transfer tokens to PDA escrow account
         let cpi_accounts = Transfer {
@@ -88,11 +91,16 @@ pub mod simple_escrow {
 /// Data structure for escrow
 #[account]
 pub struct Escrow {
-    pub depositor: Pubkey,
-    pub recipient: Pubkey,
-    pub amount: u64,
-    pub expiry: i64,
-    pub status: EscrowStatus,
+    pub depositor: Pubkey, // 32 bytes
+    pub recipient: Pubkey, // 32 bytes
+    pub amount: u64, // 8 bytes
+    pub expiry: i64, // 8 bytes
+    pub status: u8, // 1 byte (enum)
+    pub bump: u8, // 1 byte
+}
+
+impl Escrow {
+    pub const LEN: usize = 32 + 32 + 8 + 8 + 1 + 1; // Total: 82 bytes
 }
 
 /// Escrow status enum
@@ -167,7 +175,6 @@ pub struct CreateEscrow<'info> {
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
 }
-
 /// Accounts for funding escrow
 #[derive(Accounts)]
 pub struct FundEscrow<'info> {
