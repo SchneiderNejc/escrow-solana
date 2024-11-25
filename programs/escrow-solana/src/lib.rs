@@ -79,7 +79,7 @@ pub mod simple_escrow {
         token::transfer(cpi_ctx, escrow.amount)?;
 
         // Mark escrow as completed
-        escrow.status = EscrowStatus::Completed;
+        escrow.status = EscrowStatus::Completed.as_u8(); // Convert enum to u8
 
         Ok(())
     }
@@ -143,7 +143,7 @@ pub struct CreateEscrow<'info> {
         constraint = depositor_token_account.owner == depositor.key(),
         constraint = depositor_token_account.mint == mint.key()
     )]
-    pub depositor_token_account: Account<'info, anchor_spl::token::TokenAccount>,
+    pub depositor_token_account: Account<'info, TokenAccount>,
 
     #[account(
         init,
