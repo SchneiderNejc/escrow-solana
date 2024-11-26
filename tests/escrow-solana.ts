@@ -166,5 +166,28 @@ describe("escrow_solana", () => {
     );
     expect(escrowTokenBalance.value.amount).to.equal("500000000");
   });
+
+  xit("Withdraws from the escrow", async () => {
+    // Wait for expiry to simulate an expired escrow
+    await new Promise((resolve) => setTimeout(resolve, 60 * 1000));
+
+    await program.methods
+      .withdrawEscrow()
+      .accounts({
+        escrow: escrowAccount,
+        recipient: recipient.publicKey,
+        recipientTokenAccount,
+        escrowTokenAccount,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([recipient])
+      .rpc();
+
+    const escrow = await program.account.escrow.fetch(escrowAccount);
+    expect(escrow.status).to.equal(1); // Completed
+
+    const recipientTokenBalance =
+      await provider.connection.getTokenAccountBalance(recipientTokenAccount);
+    expect(recipientTokenBalance.value.amount).to.equal("500000000");
   });
 });
