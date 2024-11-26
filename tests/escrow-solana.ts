@@ -142,5 +142,29 @@ describe("escrow_solana", () => {
     expect(escrow.amount.toNumber()).to.equal(amount);
     expect(escrow.status).to.equal(0); // Pending
   });
+
+  it("Funds the escrow", async () => {
+    // Fund the escrow
+    await program.methods
+      .fundEscrow()
+      .accounts({
+        escrow: escrowAccount,
+        depositor: depositor.publicKey,
+        depositorTokenAccount,
+        escrowTokenAccount,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([depositor])
+      .rpc();
+
+    const escrow = await program.account.escrow.fetch(escrowAccount);
+    expect(escrow.status).to.equal(0); // Still Pending
+
+    // Check balances
+    const escrowTokenBalance = await provider.connection.getTokenAccountBalance(
+      escrowTokenAccount
+    );
+    expect(escrowTokenBalance.value.amount).to.equal("500000000");
+  });
   });
 });
