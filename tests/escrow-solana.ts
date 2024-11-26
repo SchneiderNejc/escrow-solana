@@ -6,6 +6,7 @@ import {
   createMint,
   createAccount,
   mintTo,
+  getAssociatedTokenAddress,
 } from "@solana/spl-token";
 import { expect } from "chai";
 import { EscrowSolana } from "../target/types/escrow_solana";
@@ -106,7 +107,7 @@ describe("escrow_solana", () => {
       program.programId
     );
 
-    escrowTokenAccount = await Token.getAssociatedTokenAddress(
+    escrowTokenAccount = await getAssociatedTokenAddress(
       TOKEN_PROGRAM_ID,
       mint,
       escrowAccount,
