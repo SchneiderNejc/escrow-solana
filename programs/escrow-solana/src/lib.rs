@@ -40,7 +40,14 @@ pub mod simple_escrow {
             authority: ctx.accounts.depositor.to_account_info(),
         };
 
-        let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+        // Create a simple CPI context for a token transfer.
+        // This version does not use signer seeds, so it assumes the authority
+        // is provided directly through the accounts.
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(), // Reference to the SPL Token program.
+            cpi_accounts // Account information for the token transfer.
+        );
+
         token::transfer(cpi_ctx, escrow.amount)?;
 
         Ok(())
@@ -72,10 +79,13 @@ pub mod simple_escrow {
             authority: escrow_account_info, // Use cloned account info
         };
 
+        // Create a Cross-Program Invocation (CPI) context for a token transfer with a signer.
+        // This allows the program to call the token program to transfer tokens, using
+        // the provided signer seeds for authorization.
         let cpi_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            cpi_accounts,
-            signer_seeds
+            ctx.accounts.token_program.to_account_info(), // Reference to the SPL Token program.
+            cpi_accounts, // Account information required by the token transfer instruction.
+            signer_seeds // PDA seeds used for signing the transfer.
         );
 
         // Perform the token transfer
@@ -100,19 +110,30 @@ pub struct Escrow {
 }
 
 impl Escrow {
-    pub const LEN: usize = 32 + 32 + 8 + 8 + 1 + 1; // Total: 82 bytes
+    /// Defines the total space required for the Escrow account on-chain.
+    /// - 8 bytes: Anchor discriminator for identifying account type.
+    /// - 32 bytes: Public key of the depositor.
+    /// - 32 bytes: Public key of the recipient.
+    /// - 8 bytes: Unsigned 64-bit integer to store the escrowed amount.
+    /// - 8 bytes: Signed 64-bit integer to store the escrow's expiry timestamp.
+    /// - 1 byte: Escrow status (stored as a u8, mapping to EscrowStatus enum).
+    /// - 1 byte: PDA bump seed for program-derived accounts (security-related).
+    pub const LEN: usize = 8 + 32 + 32 + 8 + 8 + 1 + 1; // Total: 90 bytes
 }
 
-/// Escrow status enum
+/// Represents the current state of the escrow.
+/// Stored as a u8 in the on-chain Escrow account.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq)]
-#[repr(u8)]
+#[repr(u8)] // Maps the enum to a u8 for efficient storage
 pub enum EscrowStatus {
-    Pending = 0,
-    Completed = 1,
-    Cancelled = 2,
+    Pending = 0, // Escrow is initialized but not yet completed or cancelled.
+    Completed = 1, // Funds have been withdrawn by the recipient.
+    Cancelled = 2, // Escrow has been cancelled, and funds are returned to the depositor.
 }
 
 impl EscrowStatus {
+    /// Converts the EscrowStatus enum into its corresponding u8 value.
+    /// Useful for serializing the status into the on-chain Escrow account.
     pub fn as_u8(self) -> u8 {
         self as u8
     }
@@ -121,12 +142,15 @@ impl EscrowStatus {
 impl TryFrom<u8> for EscrowStatus {
     type Error = ProgramError;
 
+    /// Converts a raw `u8` value back into an `EscrowStatus` enum.
+    /// Ensures only valid values (0, 1, 2) are allowed.
+    /// Returns an error if the value is invalid.
     fn try_from(value: u8) -> core::result::Result<Self, Self::Error> {
         match value {
-            0 => Ok(EscrowStatus::Pending),
-            1 => Ok(EscrowStatus::Completed),
-            2 => Ok(EscrowStatus::Cancelled),
-            _ => Err(ProgramError::InvalidAccountData),
+            0 => Ok(EscrowStatus::Pending), // Maps 0 to the Pending status.
+            1 => Ok(EscrowStatus::Completed), // Maps 1 to the Completed status.
+            2 => Ok(EscrowStatus::Cancelled), // Maps 2 to the Cancelled status.
+            _ => Err(ProgramError::InvalidAccountData), // Returns an error for invalid u8 values.
         }
     }
 }
