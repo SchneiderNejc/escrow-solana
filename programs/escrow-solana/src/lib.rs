@@ -4,7 +4,7 @@ use anchor_spl::token::{ self, Token, Transfer, TokenAccount, Mint };
 declare_id!("3KDBTtEACxDo44K3H3pQj3uq7dz6L3nV9g2niHBuEvpw");
 
 #[program]
-pub mod simple_escrow {
+pub mod escrow_solana {
     use super::*;
 
     /// Create a new escrow
