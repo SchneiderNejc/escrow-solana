@@ -92,5 +92,55 @@ describe("escrow_solana", () => {
       1_000_000_000
     );
   });
+
+  it("Creates an escrow", async () => {
+    // Derive escrow and token accounts using findProgramAddressSync
+    [escrowAccount, escrowBump] = PublicKey.findProgramAddressSync(
+      [Buffer.from("escrow"), depositor.publicKey.toBuffer()],
+      program.programId
+    );
+
+    const seeds = [Buffer.from("escrow")]; // Convert the string to a Buffer
+    const [myPda, _bump] = anchor.web3.PublicKey.findProgramAddressSync(
+      seeds,
+      program.programId
+    );
+
+    escrowTokenAccount = await Token.getAssociatedTokenAddress(
+      TOKEN_PROGRAM_ID,
+      mint,
+      escrowAccount,
+      program.programId
+    );
+
+    // Create escrow transaction
+    const amount = 500_000_000; // 50 tokens (6 decimals)
+    const expiry = 60; // 1 minute from now
+    await program.methods
+      .createEscrow(new anchor.BN(amount), new anchor.BN(expiry)) // Pass expiry as a BN
+      .accounts({
+        escrow: escrowAccount,
+        depositor: depositor.publicKey,
+        depositorTokenAccount,
+        escrowTokenAccount,
+        recipient: recipient.publicKey,
+        mint,
+        systemProgram: SystemProgram.programId,
+        rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([depositor])
+      .rpc();
+
+    const escrow = await program.account.escrow.fetch(escrowAccount);
+    expect(escrow.depositor.toBase58()).to.equal(
+      depositor.publicKey.toBase58()
+    );
+    expect(escrow.recipient.toBase58()).to.equal(
+      recipient.publicKey.toBase58()
+    );
+    expect(escrow.amount.toNumber()).to.equal(amount);
+    expect(escrow.status).to.equal(0); // Pending
+  });
   });
 });
