@@ -1,15 +1,15 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
+import { PublicKey, Keypair } from "@solana/web3.js";
 import {
-  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   createMint,
-  createAccount,
   mintTo,
-  getAssociatedTokenAddress,
+  createAccount,
 } from "@solana/spl-token";
 import { expect } from "chai";
 import { EscrowSolana } from "../target/types/escrow_solana";
+import { Idl } from "@coral-xyz/anchor";
 
 // --------------------- Helper Functions ---------------------
 // this airdrops sol to an address
