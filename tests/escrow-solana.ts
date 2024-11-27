@@ -57,13 +57,13 @@ async function confirmTransaction(tx: string) {
     signature: tx,
   });
 }
+
 // --------------------- Test Functions ---------------------
 
 describe("escrow_solana", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
-  // anchor.setProvider(provider);
-  const program = anchor.workspace.EscrowSolana as Program<EscrowSolana>;
+  const program = anchor.workspace.EscrowSolana as Program<EscrowSolana & Idl>;
 
   // Keypairs and accounts
   const depositor = Keypair.generate();
@@ -76,10 +76,13 @@ describe("escrow_solana", () => {
   let escrowBump: number;
 
   before(async () => {
-    await airdropSol(depositor.publicKey, 2 * anchor.web3.LAMPORTS_PER_SOL);
     // Airdrop SOL to the depositor and recipient for fees
-    await provider.connection.requestAirdrop(depositor.publicKey, 1e9);
-    await provider.connection.requestAirdrop(recipient.publicKey, 1e9);
+    try {
+      await airdropSol(depositor.publicKey, 2); // Airdrop 2 SOL to depositor
+      await airdropSol(recipient.publicKey, 2); // Airdrop 2 SOL to recipient
+    } catch (error) {
+      console.log("Airdrop failed:", error);
+    }
 
     // Create a new mint
     mint = await createMint(
@@ -87,24 +90,30 @@ describe("escrow_solana", () => {
       depositor,
       depositor.publicKey,
       null,
-      6, // Decimals
+      9, // Decimals
       undefined,
       undefined,
-      TOKEN_PROGRAM_ID
+      TOKEN_2022_PROGRAM_ID
     );
 
-    // Create token accounts for depositor and recipient
-    depositorTokenAccount = await createAccount(
+    const depositorTokenAccount = await createAccount(
       provider.connection,
-      depositor,
-      mint,
-      depositor.publicKey
+      depositor, // Payer to create Token Account
+      mint, // Mint Account address
+      depositor.publicKey, // Token Account owner
+      undefined, // Optional keypair, default to Associated Token Account
+      undefined, // Confirmation options
+      TOKEN_2022_PROGRAM_ID // Token Extension Program ID
     );
-    recipientTokenAccount = await createAccount(
+
+    const recipientTokenAccount = await createAccount(
       provider.connection,
-      depositor,
-      mint,
-      recipient.publicKey
+      recipient, // Payer to create Token Account
+      mint, // Mint Account address
+      recipient.publicKey, // Token Account owner
+      undefined, // Optional keypair, default to Associated Token Account
+      undefined, // Confirmation options
+      TOKEN_2022_PROGRAM_ID // Token Extension Program ID
     );
 
     // Mint tokens to the depositor's token account
@@ -114,7 +123,10 @@ describe("escrow_solana", () => {
       mint,
       depositorTokenAccount,
       depositor.publicKey,
-      1_000_000_000
+      1_000_000_000, // Mint tokens to the depositor's account
+      undefined,
+      undefined,
+      TOKEN_2022_PROGRAM_ID
     );
   });
 
