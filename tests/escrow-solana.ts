@@ -12,21 +12,45 @@ import { EscrowSolana } from "../target/types/escrow_solana";
 import { Idl } from "@coral-xyz/anchor";
 
 // --------------------- Helper Functions ---------------------
-// this airdrops sol to an address
-async function airdropSol(publicKey, amount) {
-  let airdropTx = await anchor
-    .getProvider()
-    .connection.requestAirdrop(
-      publicKey,
-      amount * anchor.web3.LAMPORTS_PER_SOL
-    );
-  await confirmTransaction(airdropTx);
+// This airdrops SOL to an address and ensures the balance is updated
+async function airdropSol(publicKey: PublicKey, amount: number) {
+  console.log(`Requesting airdrop of ${amount} SOL to ${publicKey.toBase58()}`);
+
+  const connection = anchor.getProvider().connection;
+
+  // Request airdrop (convert SOL to lamports)
+  const airdropTx = await connection.requestAirdrop(
+    publicKey,
+    amount * anchor.web3.LAMPORTS_PER_SOL
+  );
+  console.log(`Airdrop requested: ${airdropTx}`);
+
+  // Confirm the transaction
+  try {
+    await confirmTransaction(airdropTx);
+  } catch (error) {
+    console.error("Error confirming airdrop transaction:", error);
+  }
+
+  // Check balance to verify airdrop success
+  const balance = await connection.getBalance(publicKey);
+  console.log(`Balance after airdrop: ${balance} lamports`);
+
+  if (balance === 0) {
+    throw new Error("Airdrop failed. Account has no funds.");
+  }
+
+  console.log(
+    `Airdrop successful for ${publicKey.toBase58()}: ${balance} lamports`
+  );
 }
 
-async function confirmTransaction(tx) {
+// Function to confirm the transaction
+async function confirmTransaction(tx: string) {
   const latestBlockHash = await anchor
     .getProvider()
     .connection.getLatestBlockhash();
+
   await anchor.getProvider().connection.confirmTransaction({
     blockhash: latestBlockHash.blockhash,
     lastValidBlockHeight: latestBlockHash.lastValidBlockHeight,
