@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{ self, Token, Transfer, TokenAccount, Mint };
 
-declare_id!("3KDBTtEACxDo44K3H3pQj3uq7dz6L3nV9g2niHBuEvpw");
+declare_id!("FQsrCdTzAVkqg6eTximoptrxpMERQ5A2uZ6VjcBnGWo9");
 
 #[program]
 pub mod escrow_solana {
@@ -194,7 +194,7 @@ pub struct CreateEscrow<'info> {
 
     // Other accounts
     #[account(mut)]
-    pub recipient: Signer<'info>,
+    pub recipient: Account<'info, TokenAccount>,
 
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
