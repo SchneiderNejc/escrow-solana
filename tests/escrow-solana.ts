@@ -1,8 +1,9 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { PublicKey, Keypair } from "@solana/web3.js";
+import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import {
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
   createMint,
   mintTo,
   createAccount,
@@ -98,17 +99,26 @@ describe("escrow_solana", () => {
       TOKEN_2022_PROGRAM_ID
     );
 
-    const depositorTokenAccount = await createAccount(
+    depositorTokenAccount = await createAssociatedTokenAccount(
       provider.connection,
-      depositor, // Payer to create Token Account
-      mint, // Mint Account address
-      depositor.publicKey, // Token Account owner
-      undefined, // Optional keypair, default to Associated Token Account
-      undefined, // Confirmation options
-      TOKEN_2022_PROGRAM_ID // Token Extension Program ID
+      depositor, // Payer
+      mint, // Mint
+      depositor.publicKey, // Owner
+      undefined,
+      TOKEN_2022_PROGRAM_ID // Correct Token Program ID
     );
 
-    const recipientTokenAccount = await createAccount(
+    // depositorTokenAccount = await createAccount(
+    //   provider.connection,
+    //   depositor, // Payer to create Token Account
+    //   mint, // Mint Account address
+    //   depositor.publicKey, // Token Account owner
+    //   undefined, // Optional keypair, default to Associated Token Account
+    //   undefined, // Confirmation options
+    //   TOKEN_2022_PROGRAM_ID // Token Extension Program ID
+    // );
+
+    recipientTokenAccount = await createAccount(
       provider.connection,
       recipient, // Payer to create Token Account
       mint, // Mint Account address
@@ -143,29 +153,30 @@ describe("escrow_solana", () => {
     const isOnCurve = PublicKey.isOnCurve(pda.toBuffer());
     console.log("Is escrowAccount on curve:", isOnCurve);
 
-    const accountInfo = await provider.connection.getParsedAccountInfo(pda);
+    let accountInfo = await provider.connection.getParsedAccountInfo(pda);
     console.log("Escrow Token Account Info:", accountInfo);
 
-    // createAssociatedTokenAccount(
-    //   provider.connection,
-    //   depositor,
-    //   mint,
-    //   pda,
-    //   undefined,
-    //   undefined,
-    //   TOKEN_2022_PROGRAM_ID
-    // );
+    console.log("programId: ", program.programId);
 
-    // Explicitly create the escrow token account (use TOKEN_PROGRAM_ID)
-    // escrowTokenAccount = await createAccount(
-    //   provider.connection,
-    //   depositor, // Payer
-    //   mint, // Token mint
-    //   pda, // Escrow PDA as the owner
-    //   undefined, // Optional keypair
-    //   undefined, // Confirmation options
-    //   TOKEN_2022_PROGRAM_ID // Use the token program ID
-    // );
+    escrowTokenAccount = await getAssociatedTokenAddress(
+      mint, // Mint of the token
+      pda, // Owner/authority (PDA)
+      true, // Allow the owner account to be a PDA
+      SystemProgram.programId, // Solana connection
+      TOKEN_2022_PROGRAM_ID // Payer of the transaction
+    );
+
+    console.log({
+      escrow: pda,
+      depositor: depositor.publicKey,
+      depositorTokenAccount,
+      escrowTokenAccount,
+      recipient: recipient.publicKey,
+      mint,
+      systemProgram: SystemProgram.programId,
+      rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+      tokenProgram: TOKEN_2022_PROGRAM_ID,
+    });
 
     // Create escrow transaction
     // const amount = 500_000_000; // 50 tokens (6 decimals)
@@ -185,6 +196,7 @@ describe("escrow_solana", () => {
     //   })
     //   .signers([depositor])
     //   .rpc();
+
     // const escrow = await program.account.escrow.fetch(pda);
     // expect(escrow.depositor.toBase58()).to.equal(
     //   depositor.publicKey.toBase58()
